@@ -8,6 +8,7 @@ import Header from "./Header";
 import RuleInfo from "./RuleInfo";
 import { loadUserState, saveUserState } from "../lib/userState";
 import { supabase } from "../lib/supabase";
+import CoachDashboard from "./CoachDashboard";
 
 type Props = {
   userId: string;
@@ -18,8 +19,37 @@ const OriginalApp: React.FC<Props> = ({ userId }) => {
   const [lastSaved, setLastSaved] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
 
+  // ✅ admin/coach flag
+  const [isAdmin, setIsAdmin] = useState(false);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
   const saveTimer = useRef<number | null>(null);
+
+  // 0) ROLE (admin?) betöltése a profiles táblából
+  useEffect(() => {
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const { data, error } = await supabase
+          .from("profiles")
+          .select("role")
+          .eq("id", userId)
+          .maybeSingle();
+
+        if (!cancelled) {
+          if (!error && data?.role === "admin") setIsAdmin(true);
+          else setIsAdmin(false);
+        }
+      } catch (e) {
+        if (!cancelled) setIsAdmin(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [userId]);
 
   // 1) BETÖLTÉS belépés után (Supabase-ből)
   useEffect(() => {
@@ -156,16 +186,30 @@ const OriginalApp: React.FC<Props> = ({ userId }) => {
   return (
     <Router>
       <div className="min-h-screen flex flex-col bg-[#0f0f0f]">
-        {/* ha a Headeredben később akarsz logoutot, átadhatjuk propként is */}
         <Header />
 
         <main className="flex-grow container mx-auto px-4 py-6 max-w-7xl">
           <Routes>
+            {/* ✅ Edzői route csak adminnak */}
+            {isAdmin && <Route path="/coach" element={<CoachDashboard />} />}
+
             <Route
               path="/"
               element={
                 <div className="space-y-8">
                   <RuleInfo />
+
+                  {/* ✅ Edzői gomb a főoldal tetején (csak admin) */}
+                  {isAdmin && (
+                    <div>
+                      <Link
+                        to="/coach"
+                        className="inline-block px-4 py-2 bg-red-700 hover:bg-red-800 text-white rounded-lg text-sm font-bold"
+                      >
+                        Edzői felület
+                      </Link>
+                    </div>
+                  )}
 
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                     {state.weeks.map((week) => (
@@ -200,7 +244,7 @@ const OriginalApp: React.FC<Props> = ({ userId }) => {
                       )}
                     </div>
 
-                    <div className="flex gap-3">
+                    <div className="flex gap-3 flex-wrap">
                       <button
                         onClick={exportData}
                         className="px-3 py-1.5 bg-[#252525] hover:bg-[#333] text-white text-xs font-bold rounded-lg transition-colors border border-[#333] flex items-center gap-2"
