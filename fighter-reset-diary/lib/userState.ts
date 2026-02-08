@@ -1,6 +1,6 @@
 import { supabase } from "./supabase";
 
-export async function loadUserState(userId: string) {
+export async function loadUserState<T>(userId: string): Promise<T | null> {
   const { data, error } = await supabase
     .from("user_state")
     .select("data")
@@ -8,7 +8,7 @@ export async function loadUserState(userId: string) {
     .maybeSingle();
 
   if (error) throw error;
-  return data?.data ?? null;
+  return (data?.data as T) ?? null;
 }
 
 export async function saveUserState(userId: string, state: any) {
